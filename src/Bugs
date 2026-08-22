@@ -3,3 +3,12 @@ Bugs:
   5. Register icon with WM.  I am not motivated to fix this since FLWM
        doesn't display icons like the more popular WMs.  Someone must
        repeatedly nag me to fix it.
+
+  6. FIXED: Codebox::teach()'s adaptive response timeout ("give") had no
+       floor.  A run of fast, correct answers shrinks "give" toward the
+       student's own average response time, which has natural variance;
+       eventually an ordinary timing jitter (not a wrong answer) trips the
+       hint/fail path, and no keypress can register in time.  Success turns
+       into a timing lottery instead of a knowledge test.  Added MIN_GIVE
+       (0.75s default) as a floor in Codebox.cxx.  Tune MIN_GIVE if 0.75s
+       is too tight/loose for your own reflexes/keyboard.

@@ -97,6 +97,8 @@
  */ 
 #include <cstdlib>	// atexit(), realloc()
 #include <cmath>	// Round(), sin(), and M_PI dammit!
+#define SDL_MAIN_HANDLED	// We supply our own main() (via fluid); don't
+				// let SDL2 rename it to SDL_main on Windows.
 #include <SDL.h>	// Buncha stuff.
 #include <SDL_audio.h>	//   and lots more, too
 #include "Cw.h"		// Our contract with the outside world

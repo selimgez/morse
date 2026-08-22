@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 #   Copyright 1998-2004 Ward Cunningham and Jim Wilson
 #   Distributed under the GNU GPL V2 license.
@@ -31,13 +31,13 @@ script is a filter.  It reads stdin and writes to stdout.
  
 from sys import stdin
 
-print "/* DO NOT EDIT!  The following declaration and its initializer are"
-print " * generated from the original HTML file by the script, help.py."
-print " */\n"
+print("/* DO NOT EDIT!  The following declaration and its initializer are")
+print(" * generated from the original HTML file by the script, help.py.")
+print(" */\n")
 
-print "static char* HelpString ="
+print("static const char* HelpString =")
 for helpline in stdin:
-  print '  "'+helpline.replace('"','\\"').rstrip()+'\\n"'
-print ';'
+  print('  "'+helpline.replace('"','\\"').rstrip()+'\\n"')
+print(';')
 
 

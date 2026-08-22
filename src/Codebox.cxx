@@ -29,6 +29,18 @@
 
 #define MAXCHARS 200		// Big enough to overflow Codebox line.
 
+/*  MIN_GIVE - floor for the adaptive response timeout ("give").
+ *
+ *  The update below chases the student's own response time, which has no
+ *  natural floor: a run of quick, correct answers shrinks "give" toward
+ *  zero. Since human reaction/keystroke time is never perfectly constant,
+ *  the window eventually gets so tight that an ordinary, harmless timing
+ *  jitter (not ignorance) triggers the hint/fail path, and the student can
+ *  no longer win no matter which key they press. MIN_GIVE keeps a floor
+ *  under this feedback loop.
+ */
+#define MIN_GIVE 0.75
+
 /***	signal processing
  *
  *  Here lies a mishmash of system-dependent signal processing routines
@@ -152,6 +164,7 @@ bool Codebox::teach(int c) {		// Ask Codebox to teach a character
   if (grade) {				//   If student passed the test,
     give = 0.875*give + 0.25*idle_cw();	//     Update slack. (Code stolen
     if (give > 6) give = 6;		//       from Ward's version.)
+    if (give < MIN_GIVE) give = MIN_GIVE;	//     Never squeeze below floor.
   }
   return grade;				//   Return pass/fail score. 
 }
