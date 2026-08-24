@@ -42,14 +42,18 @@ public:
   void grade(int, bool);		// Update error rates
   void graduate();			// Add letter if student's passing
   void activate(const char*);		// Introduce new character
+  bool complete();			// True once every letter is retired
+  void reset();				// Back to first-run state
 protected:
   int handle(int);			// Virtual method override
 private:
   void click_letter(int);		// Manually add/subtract a letter
   void deactivate(const char*);		// Estrange old character
+  void retire(Fl_Slider*);		// Mastered: never ask this one again
   double overall;			// Overall error "rate"
   int resize_gap;			// Gap for Bargraph::resize(x,y,w,h)
   char* slider_labels;			// Lesson plan shuffled with '\0's
+  bool* retired;			// Parallel to children(): mastered?
   Fl_Slider* find(int);			// Find Slider for given character
   void apply(void (Fl_Slider::*)(),	// Apply certain method to Sliders 
              const char*);		//   whose name is in list.

@@ -38,6 +38,7 @@ class Codebox: public Fl_Input_ {
 public:
   Codebox(int,int,int,int);	// Unlabeled, restricted text input
   bool teach(int);		// Teach character
+  void reset();			// Forget adaptation, start fresh
 protected:
   int handle(int);		// User event handler
   void draw();			// GUI redraw requests
@@ -46,5 +47,6 @@ private:
   void append(int);		// Append character to right end of line
   volatile int answer;		// The answer we're waiting for
   double give;			// How many seconds we'll wait to hear it
+  int last;			// Previous character taught (0 initially)
 };
 #endif // Codebox_h

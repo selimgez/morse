@@ -19,9 +19,27 @@
     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 #include "Bargraph.h"	// Our contract specifies what we must deliver
-#include <cstring>	// Strlen(), strspn()	
+#include <cstring>	// Strlen(), strspn()
 #include <cstdlib>	// rand() for random integers
 #include <FL/Fl.H>	// Event stuff (e.g., release ordinate, abscissa)
+
+/*  LEARNED_THRESHOLD - value() a letter must decay below to be retired.
+ *
+ *  select() weights every active letter by its value() (an EMA of recent
+ *  error), which only ever asymptotes toward zero and never actually
+ *  reaches it - so a "mastered" letter always keeps a small, nonzero
+ *  chance of being asked again, forever.  Once value() crosses this
+ *  threshold we retire the letter outright (see Bargraph::retire()) so it
+ *  is never selected again, instead of letting it linger at a vanishing
+ *  but nonzero weight.
+ *
+ *  0.07 triggers after ~20 clean back-to-back passes from a
+ *  freshly-introduced letter (value 1 -> 0.875^20 ~= 0.069) - a single
+ *  wrong answer bumps value() back up by 0.125, so a letter only retires
+ *  after a genuinely solid run, not a lucky streak.  Tune further based
+ *  on how it feels in practice.
+ */
+#define LEARNED_THRESHOLD 0.07
 
 /***	Bargraph - a constructor that mimics the underlying Group
  ***   ~Bargraph - the other way 'round
@@ -34,9 +52,10 @@
  *  The Sliders are created with nonsensical positions and sizes.  They
  *  may be carefully positioned by "Bargraph::tesselate()", below
  */
-Bargraph::Bargraph(int x, int y, int w, int h, const char* l): 
+Bargraph::Bargraph(int x, int y, int w, int h, const char* l):
   Fl_Group(x,y, w,h) {				// Call base-class c'tor
-  slider_labels = new char[2*strlen(l)];	// Characters in slider labels
+  int n = strlen(l);				// Number of letters taught
+  slider_labels = new char[2*n];		// Characters in slider labels
   for (char* to = slider_labels; *l; l++,to+=2){// Loop to create Sliders:
     to[0] = *l; to[1] = '\0';			//   Char-> 1-char string
     Fl_Slider* s = new Fl_Slider(0,0, 0,0, to); //   Create, add to Bargraph.
@@ -46,9 +65,11 @@ Bargraph::Bargraph(int x, int y, int w, int h, const char* l):
     s->deactivate();				//   We'll activate later
     s->clear_visible_focus();			//   Too many to focus on.
   }
+  retired = new bool[n];			// None mastered yet
+  for (int i = 0; i < n; i++) retired[i] = false;
   overall = 0;					// Good error rate to start.
 }
-Bargraph::~Bargraph() { delete[] slider_labels; }
+Bargraph::~Bargraph() { delete[] slider_labels; delete[] retired; }
 
 
 /***	Bargraph::handle - because Fl_Group ignores releases!
@@ -178,15 +199,19 @@ void Bargraph::click_letter(int x) {
   bool some_active = false;			// Must have at least one!
   for (int i = 0; i < children(); i++) {	// Loop through sliders
     Fl_Slider* s = (Fl_Slider*)child(i);	//   Convenience pointer
-    if (!s->visible()) continue;		//   Ignore nonciricula
+    if (!s->visible() || retired[i]) continue;	//   Ignore nonciricula/mastered
     if(s->x() <= x && x < s->x()+s->w()){	//   If beneath this Slider,
       const char* letter = s->label();		//     Name to (de)activate
       if (s->active()) deactivate(letter);	//     If active, make it not
       else               activate(letter);	//     If not, make it so
     }
-    if (s->active()) some_active = true;	// So far, so good! 
+    if (s->active()) some_active = true;	// So far, so good!
   }
-  if (!some_active) activate(child(0)->label());// At least first letter
+  if (!some_active)				// Nothing active?  Press one
+    for (int i = 0; i < children(); i++) {	//   into service - but never
+      Fl_Slider* s = (Fl_Slider*)child(i);	//   a retired (mastered) one.
+      if (s->visible() && !retired[i]) { activate(s->label()); break; }
+    }
 }
 
 /***	drand - return random double in [0, 1)
@@ -238,6 +263,67 @@ void Bargraph::grade(int c, bool pass) {
   overall = overall*0.875 +		// Update overall error rate
     (pass? 0: 0.125);			// If overall error rate is low,
   if (overall < 0.1) update(s, pass);	//   accelerate  character decay rate
+  if (s && s->active() && s->value() < LEARNED_THRESHOLD)
+    retire(s);				// Mastered: retire it for good.
+}
+
+/***	Bargraph::retire - mark a mastered letter learned, for good
+ *
+ *  Once a letter's error estimate has decayed below LEARNED_THRESHOLD, we
+ *  consider it learned.  Deactivating it keeps select() from choosing it.
+ *  We leave it visible (rather than hiding it) so the student can still
+ *  see it on the board - its bar just stays frozen, near-empty, since
+ *  grade() is never called for it again.  The "retired" flag (separate
+ *  from visible()/active()) is what actually keeps it retired: it stops
+ *  graduate() and click_letter() from mistaking a mastered letter for one
+ *  that simply hasn't been introduced yet (both look visible+inactive).
+ */
+void Bargraph::retire(Fl_Slider* s) {
+  s->deactivate();			// Never selectable again ...
+  s->value(0);				// ... bar reads fully empty, not just
+					//   near-empty (frozen error estimate
+					//   would otherwise leave a sliver) ...
+  for (int i = 0; i < children(); i++)	// ... and remember which one, so
+    if (child(i) == s) { retired[i] = true; break; }	//   it stays that way.
+  redraw();
+}
+
+/***	Bargraph::complete - true once every letter has been retired
+ *
+ *  Every letter still in the lesson plan (visible) must be retired for
+ *  the lesson to be complete - a visible, non-retired letter is either
+ *  still being taught (active) or hasn't been introduced yet, either way
+ *  there's still something left to do.
+ */
+bool Bargraph::complete() {
+  for (int i = 0; i < children(); i++)
+    if (child(i)->visible() && !retired[i]) return false;
+  return true;
+}
+
+/***	Bargraph::reset - return every letter to its first-run state
+ *
+ *  Undoes retire()/graduate()/grade() history: every Slider goes back to
+ *  the same value(), activation, visibility and appearance it had right
+ *  after the constructor ran.  Callers still need to reapply whatever
+ *  app-specific starting lesson plan the constructor's caller applied
+ *  (e.g. Bargraph doesn't know which letters should start active) -
+ *  reset() only restores the generic per-Slider state.
+ */
+void Bargraph::reset() {
+  for (int i = 0; i < children(); i++) {
+    Fl_Slider* s = (Fl_Slider*) child(i);
+    s->value(1);			//   Start full to the brim again
+    s->deactivate();			//   Not yet (re)taught
+    s->labelfont(FL_HELVETICA);	//   Un-bold ...
+    s->selection_color(FL_BACKGROUND_COLOR);	// ... and un-blue.
+    s->set_visible();			//   Back on the board
+    s->redraw_label();
+    retired[i] = false;		//   Nothing learned (yet) this time.
+  }
+  overall = 0;				// Good error rate to start.
+  tesselate(resize_gap);
+  redraw();
 }
 
 /***	graduate - add another letter!
@@ -250,7 +336,7 @@ void Bargraph::graduate() {
   const char* next_letter = 0;		// Candidate for new letter
   for (int i = 0; i < children(); i++) {// Scan for worst letter, new letter
     Fl_Slider* s = (Fl_Slider*)child(i);//   Convenience pointer
-    if (s->visible()) {			//   If in course outline
+    if (s->visible() && !retired[i]) {	//   If in course outline, unretired
       if (s->active()) {		//     If already introduced,
         if (s->value() >0.4) return;	//       If unlearned, hold 'em back.
       } else if (!next_letter)		//   Note first untaught letter.

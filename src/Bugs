@@ -12,3 +12,92 @@ Bugs:
        into a timing lottery instead of a knowledge test.  Added MIN_GIVE
        (0.75s default) as a floor in Codebox.cxx.  Tune MIN_GIVE if 0.75s
        is too tight/loose for your own reflexes/keyboard.
+
+  7. FIXED: A "mastered" letter was never actually retired.  Bargraph
+       tracks each letter's error estimate as value(), an EMA that only
+       ever decays toward zero and never truly reaches it, while
+       select()'s weighting is proportional to value() - so a letter the
+       student had clearly learned kept a small but nonzero chance of
+       being asked again, forever (visually the bar looks completely
+       empty well before value() is actually zero: at the Bargraph's
+       ~150px slider height, anything below ~0.0067 already rounds to
+       under 1px). Added Bargraph::retire(), called from grade() once a
+       letter's value() decays below LEARNED_THRESHOLD (Bargraph.cxx):
+       the letter is deactivated *and* hidden for good, so select() and
+       graduate() both leave it alone permanently. NOTE: LEARNED_THRESHOLD
+       is currently set to a fast test value (~5 clean answers) to make
+       the retire/complete/reset flow easy to verify; tighten it back
+       toward the visually-empty point once confirmed.
+
+  8. ADDED: There was no concept of finishing a lesson - the main loop in
+       m.fl is an unconditional while(1), so even after every letter was
+       (nominally) mastered, the program just kept asking questions
+       forever. With #7 giving "mastered" a real, permanent meaning,
+       added Bargraph::complete() (true once every letter has been
+       retired) and Bargraph::reset()/Codebox::reset() (undo all
+       retire()/graduate()/give-adaptation history). m.fl's main loop now
+       checks complete() after each round, shows a completion message,
+       and resets the lesson to its first-run state when the student
+       clicks OK.
+
+  9. FIXED: Codebox::teach()'s "give" update used the student's raw
+       response time (idle_cw()) with no awareness of whether the letter
+       just asked was a repeat of the one immediately before it. When a
+       weak letter gets drilled several times in a row (very likely,
+       since select()'s weighting favors letters with high error), the
+       student anticipates it and answers unnaturally fast - and since
+       "give" is a single value shared by every letter, that anticipated
+       speed was shrinking the response window for every other
+       (genuinely unpredictable) letter too. teach() now remembers the
+       previously-taught letter (Codebox::last) and skips the "give"
+       update whenever the current letter repeats the previous one.
+
+  10. FIXED (crash): Bargraph::retire() (see #7) originally hid a
+       mastered letter (clear_visible()) as well as deactivating it, then
+       called tesselate() to reflow the remaining bars. tesselate()
+       divides by the count of currently-visible sliders
+       (Bargraph.cxx: "int dx = w()/nd;"); if the letter being retired
+       was the last visible one, that count hit zero and the division by
+       zero crashed the app outright (window vanishes instantly - this is
+       almost certainly what an earlier tester saw). Fix: retire() no
+       longer hides the slider, only deactivates it - mastered letters
+       now stay visible on the board (their bar just stays frozen near-
+       empty) instead of disappearing, which also removes the crash path
+       entirely since visibility, and therefore tesselate()'s divisor,
+       never changes because of retirement.
+
+       Leaving mastered letters visible-but-inactive made them look
+       identical to letters that simply haven't been introduced yet
+       (both are visible + !active()), which would have let
+       Bargraph::graduate() and Bargraph::click_letter() mistakenly
+       reactivate a mastered letter. Fixed by adding an explicit
+       per-letter retired[] flag (separate from active()/visible()) that
+       both methods now check, so a retired letter can never be
+       reintroduced by any path.
+
+       Also: LEARNED_THRESHOLD raised from a very fast ~5-clean-answer
+       test value to ~20 clean back-to-back answers (0.07) - 5 felt like
+       letters were just being cycled through rather than genuinely
+       drilled.
+
+  11. FIXED: A retired letter's bar never quite reached empty - a thin
+       sliver of blue fill remained at the bottom (screenshot confirmed:
+       every completed letter showed a small but visible fill after the
+       "learned every letter" message). Cause: retire() deactivated the
+       Slider but never touched value() - it stayed frozen at whatever
+       it was the instant it crossed LEARNED_THRESHOLD (e.g. ~0.06, just
+       under the 0.07 cutoff), which the FL_VERT_FILL_SLIDER still
+       renders as a small nonzero fill. Fixed by having retire() set
+       value(0) explicitly, so a mastered letter's bar always reads
+       completely empty.
+
+  Known, deliberately deferred (see project history for discussion):
+    - Bargraph::grade()'s "if (overall < 0.1) update(s, pass)" applies a
+      second error penalty on a FAIL as well as a PASS, so a struggling
+      letter's weight can spike late in an otherwise-good session. Left
+      alone for now; revisit when tuning how often a hard letter repeats
+      across separate teach() calls.
+    - Codebox::teach()'s inner while(answer) hint loop is intentionally
+      unbounded: a student may want to hear a letter dozens of times to
+      internalize it, so it keeps hinting/resounding until answered
+      correctly, with no cap. This is deliberate, not a bug.

@@ -36,7 +36,9 @@ decl {\#include "Cw.h"} {}
 
 decl {\#include <cstdlib>} {} 
 
-decl {\#include "Help.h"} {} 
+decl {\#include "Help.h"} {}
+
+decl {\#include <FL/fl_ask.H>} {}
 
 Function {adjust(Fl_Widget*, void*)} {private return_type void
 } {
@@ -237,5 +239,14 @@ while (1) {
   bool pass = Teacher->teach(c);// Teach/test student
   Lesson->grade(c , pass);	// Update scores
   Lesson->graduate();		// Maybe add a letter
+  if (Lesson->complete()) {	// Every taught letter mastered?
+    fl_message("Congratulations! You've learned every letter.");
+    Lesson->reset();		//   Back to first-run state ...
+    Lesson->disable("./=?");	//   ... symbols start excluded ...
+    Lesson->activate("Q7ZG");	//   ... first four letters active ...
+    Lesson->tesselate();
+    Lesson->redraw();
+    Teacher->reset();		//   ... and forget adaptive timing too.
+  }
 }} {}
 } 

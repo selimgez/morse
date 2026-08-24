@@ -71,6 +71,7 @@ Codebox::Codebox(int x, int y, int w, int h):
   maximum_size(MAXCHARS);	// A sensible growth policy
   answer = 0;			// Accept no characters for now.
   give = 3.5;			// Initial timeout for lesson failure
+  last = 0;			// No previous letter yet
   resting = true;		// Let student get set.
   signal_set();			// Signal-catching mojo
   srand(unsigned(time(0)));	// Stir up random number generator
@@ -147,6 +148,8 @@ void Codebox::append(int c) {		// Append character to displayed line
  *  true.
  */
 bool Codebox::teach(int c) {		// Ask Codebox to teach a character
+  bool repeat = (c == last);		//   Same letter as immediately before?
+  last = c;				//   Remember it for next time.
   answer = c;				//   Set up response we'll insist on
   bool grade = true;			//   Adopt optimistic attitude
   while (resting) Fl::wait();		//   Wait until she's ready
@@ -161,10 +164,24 @@ bool Codebox::teach(int c) {		// Ask Codebox to teach a character
     } else Fl::check();			//     Otherwise, just check events
   }
   append(c);				//   Echo correct answer
-  if (grade) {				//   If student passed the test,
+  if (grade && !repeat) {		//   If student passed on a fresh letter
     give = 0.875*give + 0.25*idle_cw();	//     Update slack. (Code stolen
     if (give > 6) give = 6;		//       from Ward's version.)
     if (give < MIN_GIVE) give = MIN_GIVE;	//     Never squeeze below floor.
-  }
-  return grade;				//   Return pass/fail score. 
+  }					//   (A repeated letter is answered
+					//    from anticipation, not genuine
+					//    reaction speed - don't let it
+					//    tighten give.)
+  return grade;				//   Return pass/fail score.
+}
+
+/***	reset - forget adaptive timing, start fresh
+ *
+ *  Called after a lesson is completed (every letter retired) and the
+ *  Bargraph has been reset, so the next lesson starts exactly like the
+ *  first one did.
+ */
+void Codebox::reset() {
+  give = 3.5;				// Initial timeout for lesson failure
+  last = 0;				// No previous letter carried over
 }
