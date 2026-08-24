@@ -44,6 +44,7 @@ public:
   void activate(const char*);		// Introduce new character
   bool complete();			// True once every letter is retired
   void reset();				// Back to first-run state
+  static void set_learned_threshold(double);// Override the retire cutoff
 protected:
   int handle(int);			// Virtual method override
 private:

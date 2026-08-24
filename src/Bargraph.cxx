@@ -23,7 +23,7 @@
 #include <cstdlib>	// rand() for random integers
 #include <FL/Fl.H>	// Event stuff (e.g., release ordinate, abscissa)
 
-/*  LEARNED_THRESHOLD - value() a letter must decay below to be retired.
+/*  learned_threshold - value() a letter must decay below to be retired.
  *
  *  select() weights every active letter by its value() (an EMA of recent
  *  error), which only ever asymptotes toward zero and never actually
@@ -33,13 +33,22 @@
  *  is never selected again, instead of letting it linger at a vanishing
  *  but nonzero weight.
  *
- *  0.07 triggers after ~20 clean back-to-back passes from a
- *  freshly-introduced letter (value 1 -> 0.875^20 ~= 0.069) - a single
- *  wrong answer bumps value() back up by 0.125, so a letter only retires
- *  after a genuinely solid run, not a lucky streak.  Tune further based
- *  on how it feels in practice.
+ *  Default (0.00342) is not an arbitrary guess: it's the point at which
+ *  the Slider's fill is visually empty (0.5px rounding at the default
+ *  640x240 window's 146px-tall bar - see Bargraph::tesselate() and
+ *  Fl_Slider::draw()'s FL_DOWN_BOX inset), i.e. the retire point matches
+ *  what the student already sees as "nothing left here". A perfect,
+ *  never-wrong run crosses it after ~22 clean passes - grade() applies a
+ *  double EMA update (0.875 twice, not once) whenever overall error is
+ *  low, so decay is 0.875^2 = 0.765625 per clean answer, not 0.875; any
+ *  wrong answer bumps value() back up and pushes retirement out further,
+ *  proportionally to how often the student actually misses that letter.
+ *
+ *  Override at runtime with set_learned_threshold() - m.fl's main() calls
+ *  it from argv[1] when given, so this can be tuned without a rebuild.
  */
-#define LEARNED_THRESHOLD 0.07
+static double learned_threshold = 0.00342;
+void Bargraph::set_learned_threshold(double t) { learned_threshold = t; }
 
 /***	Bargraph - a constructor that mimics the underlying Group
  ***   ~Bargraph - the other way 'round
@@ -263,13 +272,13 @@ void Bargraph::grade(int c, bool pass) {
   overall = overall*0.875 +		// Update overall error rate
     (pass? 0: 0.125);			// If overall error rate is low,
   if (overall < 0.1) update(s, pass);	//   accelerate  character decay rate
-  if (s && s->active() && s->value() < LEARNED_THRESHOLD)
+  if (s && s->active() && s->value() < learned_threshold)
     retire(s);				// Mastered: retire it for good.
 }
 
 /***	Bargraph::retire - mark a mastered letter learned, for good
  *
- *  Once a letter's error estimate has decayed below LEARNED_THRESHOLD, we
+ *  Once a letter's error estimate has decayed below learned_threshold, we
  *  consider it learned.  Deactivating it keeps select() from choosing it.
  *  We leave it visible (rather than hiding it) so the student can still
  *  see it on the board - its bar just stays frozen, near-empty, since

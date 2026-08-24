@@ -125,6 +125,38 @@ Bugs:
        back to their first-run states (Numbers checked, Symbols
        unchecked) alongside the rest of the reset.
 
+  15. TUNED + CONFIGURABLE: LEARNED_THRESHOLD (see #10) had been raised to
+       a felt-right-by-testing 0.07 (~20 clean answers, or so we thought -
+       see below) after 0.07's 5-answer predecessor made letters feel like
+       they were just being cycled through. In practice this still closed
+       letters left-to-right too fast, collapsing the middle stretch where
+       several letters are drilled together - by the time a new letter's
+       graduate() unblock point (value() < 0.4) was reached, the previous
+       letter was already retiring, leaving almost no overlap between
+       letters in active rotation.
+
+       Root cause, found by simulating a perfect (never-wrong) student:
+       Bargraph::grade()'s "if (overall < 0.1) update(s, pass)" (a
+       deliberately-deferred issue, see below) double-applies the EMA for
+       any student doing reasonably well, so real decay per clean answer
+       is 0.875^2 = 0.765625, not 0.875. Redone against the *actual* decay
+       rate, 0.07 was only ~10 clean answers (not ~20), and 0.4's unblock
+       point was only ~4 - an overlap window of just 6 answers.
+
+       Replaced the felt-right guess with a value grounded in the original
+       complaint that started all of this (letter still asked after its
+       bar reads visually empty): the pixel point at which a slider's fill
+       rounds to 0px at the default window size (146px-tall bar, 640x240
+       window) is value() ~= 0.00342, reached after ~22 clean answers under
+       the real (double-EMA) decay - widening the overlap window to ~18
+       answers (4 to 22), restoring the middle multi-letter drilling phase
+       without changing the eventual left-to-right completion order.
+
+       Also made tunable without a rebuild: LEARNED_THRESHOLD is no longer
+       a #define but a static double with a Bargraph::set_learned_threshold()
+       setter; m.fl's main() applies argv[1] (if given) to it before the
+       lesson starts, e.g. "morse.exe 0.005" to try a different cutoff.
+
   NOT a code bug: on Windows 11, morse.exe can trigger an "ms-gamingoverlay"
   dialog ("we can't open this link, your device needs a new app") on every
   launch. This is Windows' own Xbox Game Bar auto-detecting a newly

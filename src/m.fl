@@ -239,7 +239,10 @@ Lesson->redraw();}
       }
     }
   }
-  code {Morse->show(argc, argv);
+  code {if (argc > 1) Bargraph::set_learned_threshold(atof(argv[1]));
+	//   Optional override, e.g. "morse.exe 0.00342", for tuning
+	//   without a rebuild - see Bargraph.cxx's learned_threshold.
+Morse->show(argc, argv);
 while (1) {
   int c = Lesson->select();	// Select random letter
   bool pass = Teacher->teach(c);// Teach/test student
