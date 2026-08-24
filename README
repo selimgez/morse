@@ -16,10 +16,10 @@ This is a fork (https://github.com/selimgez/morse) with further
 modifications: mastered letters are permanently retired from the lesson
 (instead of lingering forever at a vanishing-but-nonzero chance of being
 re-asked), the lesson now recognizes when every letter is learned and
-resets itself, a crash on retiring the last visible letter is fixed,
-answer speed on an immediately-repeated letter no longer skews the
-adaptive response timeout, audio quality and volume control were
-improved, and the retirement threshold is grounded in where the progress
-bar visually reads empty (tunable at runtime via a command-line
-argument). See src/Bugs for the full, dated changelog. Distributed under
-the same GNU GPL v2 license as the original (see src/COPYING).
+resets itself, answer speed on an immediately-repeated letter no longer
+skews the adaptive response timeout, audio quality and volume control
+were improved, and the retirement threshold is grounded in where the
+progress bar visually reads empty (tunable at runtime via a
+command-line argument). See src/Bugs for the full, dated changelog.
+Distributed under the same GNU GPL v2 license as the original (see
+src/COPYING).
