@@ -135,7 +135,9 @@ static union {	// Sinewave buffer (enough for one cycle)
 static void waveget(void*, Uint8*, int);// Audio "callback".  See below.
 
 static SDL_AudioSpec spec = {
-  11025,	// Sample rate
+  44100,	// Sample rate (was 11025: too few samples/cycle at typical
+		// tone pitches - e.g. only ~11 at 1kHz - made the sinewave
+		// audibly coarse/distorted instead of a clean tone)
   AUDIO_S16SYS, // Native, signed 16-bit data
   1,		// Monaural ought to be sufficient
   0,		// Silence value (Set by SDL)

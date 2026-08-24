@@ -42,7 +42,7 @@ decl {\#include <FL/fl_ask.H>} {}
 
 Function {adjust(Fl_Widget*, void*)} {private return_type void
 } {
-  code {set_cw(Speed->value(), Tone->value(), 1.0);} {}
+  code {set_cw(Speed->value(), Tone->value(), Volume->value());} {}
 } 
 
 Function {full_screen(bool fs)} {private
@@ -149,7 +149,7 @@ smaller->activate();}
   }
   Fl_Window Morse {
     callback {exit(0);} open
-    xywh {761 105 640 240} type Double resizable
+    xywh {761 105 800 240} type Double resizable
     code0 {o->size_range(o->w()>>1, o->h());} visible
   } {
     Fl_Roller Speed {
@@ -164,16 +164,22 @@ smaller->activate();}
       tooltip {Adjust tone frequency} xywh {520 0 80 25} type Horizontal align 8 minimum 440 maximum 2000 step 50 value 1000
       class Knob
     }
+    Fl_Roller Volume {
+      label Volume
+      callback adjust
+      tooltip {Adjust volume} xywh {670 0 80 25} type Horizontal align 8 minimum 0 maximum 1 step 0.05 value 0.5
+      class Knob
+    }
     Fl_Group Lesson {
       label {Q7ZG098O1JPW.LRAM6B/XD=YCKN23?FU45VHSITE} open
-      private tooltip {Click the white box, below, to start.} xywh {0 25 640 185} box UP_BOX align 5 resizable
+      private tooltip {Click the white box, below, to start.} xywh {0 25 800 185} box UP_BOX align 5 resizable
       code0 {o->disable("./=?");}
       code1 {o->activate("Q7ZG");}
       code3 {o->tesselate(2);}
       class Bargraph
     } {}
     Fl_Input Teacher {
-      private tooltip {Click here to begin; press Enter to rest} xywh {0 210 640 30} when 1 textfont 1
+      private tooltip {Click here to begin; press Enter to rest} xywh {0 210 800 30} when 1 textfont 1
       class Codebox
     }
     Fl_Menu_Bar {} {open
@@ -188,7 +194,7 @@ smaller->activate();}
           callback {full_screen(o->mvalue()->value());}
           xywh {0 0 100 20} type Toggle
         }
-        menuitem {} {
+        menuitem NumbersItem {
           label Numbers
           callback {const char* nrs = "0123456789";
 if (o->mvalue()->value())
@@ -199,7 +205,7 @@ Lesson->tesselate();
 Lesson->redraw();}
           xywh {0 0 100 20} type Toggle value 1
         }
-        menuitem {} {
+        menuitem SymbolsItem {
           label Symbols
           callback {const char* syms = "./=?";
 if (o->mvalue()->value())
@@ -246,6 +252,8 @@ while (1) {
     Lesson->activate("Q7ZG");	//   ... first four letters active ...
     Lesson->tesselate();
     Lesson->redraw();
+    NumbersItem->set();	//   ... Morse menu checkboxes back in sync
+    SymbolsItem->clear();	//   ... with the lesson plan they now show.
     Teacher->reset();		//   ... and forget adaptive timing too.
   }
 }} {}

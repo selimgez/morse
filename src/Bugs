@@ -91,6 +91,50 @@ Bugs:
        value(0) explicitly, so a mastered letter's bar always reads
        completely empty.
 
+  12. FIXED: Audio sample rate (Cw.cxx's SDL_AudioSpec) was 11025Hz, a
+       holdover from the original 1998-2004 code. At that rate the sine
+       wave for a typical tone pitch only gets a handful of samples per
+       cycle (~11 at 1kHz, ~6 at the 2kHz top of the Tone knob's range) -
+       far too coarse to represent a smooth sinusoid, so the "tone" comes
+       out as an audibly rough/distorted buzz rather than a clean note
+       (reported on Windows as a "dit" sounding more like a scratchy
+       "chvtt"). Likely always somewhat present, just more exposed on a
+       modern Windows/SDL2/WASAPI audio path than it apparently was on
+       old sound hardware. Raised to 44100Hz (standard modern rate); every
+       other computation in Cw.cxx derives from spec.freq dynamically, so
+       no other change was needed.
+
+  13. ADDED: There was no volume control - set_cw() always got called with
+       loudness=1.0 (full scale), hardcoded in m.fl's adjust() callback.
+       An accidental full-volume playback is jarring, and full-scale
+       amplitude also leaves no headroom before clipping. Added a third
+       "Volume" Knob roller (m.fl, same Speed/Tone pattern, 0..1 range,
+       default 0.5) next to Speed/Tone; adjust() now passes Volume->value()
+       as loudness. Window/Lesson/Teacher widths grew from 640 to 800 to
+       fit the extra control.
+
+  14. FIXED: Lesson->reset() (see #8) unconditionally makes every letter
+       (including numbers) visible again and m.fl's completion handler
+       re-hides symbols, but it never touched the Morse menu's
+       Numbers/Symbols checkboxes - so if a student had unchecked Numbers
+       before finishing a letters-only lesson, the reset lesson plan came
+       back with numbers included again while the menu still showed
+       Numbers unchecked (mismatch between what's actually being taught
+       and what the menu claims). Named those two menuitems in m.fl
+       (NumbersItem, SymbolsItem) and, in the completion handler, set them
+       back to their first-run states (Numbers checked, Symbols
+       unchecked) alongside the rest of the reset.
+
+  NOT a code bug: on Windows 11, morse.exe can trigger an "ms-gamingoverlay"
+  dialog ("we can't open this link, your device needs a new app") on every
+  launch. This is Windows' own Xbox Game Bar auto-detecting a newly
+  launched .exe as a possible game and trying to invoke its overlay
+  protocol; morse.exe does nothing to request this (FLTK's window is a
+  plain Win32 GDI window, no DirectX/fullscreen-exclusive surface). Fix is
+  OS-side: right-click morse.exe -> Properties -> Compatibility -> "Disable
+  fullscreen optimizations", and/or turn off Xbox Game Bar in Windows
+  Settings -> Gaming.
+
   Known, deliberately deferred (see project history for discussion):
     - Bargraph::grade()'s "if (overall < 0.1) update(s, pass)" applies a
       second error penalty on a FAIL as well as a PASS, so a struggling
